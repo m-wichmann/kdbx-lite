@@ -296,7 +296,14 @@ class KdbxFile(object):
         R = hashlib.sha256(R_password + R_keyfile + R_keyprovider + R_dpapi).digest()
 
         if self._kdf_uuid == KDBX_KDF_ALGORITHM_AES:
-            raise KdbxUnknownKdfAlgorithmError()
+            # Sources:
+            #  - https://github.com/Evidlo/examples/blob/master/python/kdbx4_decrypt.py
+            #  - https://pycryptodome.readthedocs.io/en/latest/src/cipher/classic.html#ecb-mode
+            cipher = AES.new(self._kdf_s, AES.MODE_ECB)
+            T = R
+            for _ in range(0, self._kdf_r):
+                T = cipher.encrypt(T)
+            T = hashlib.sha256(T).digest()
         elif self._kdf_uuid == KDBX_KDF_ALGORITHM_ARGON2D:
             T = argon2.PasswordHasher(time_cost=self._kdf_i, memory_cost=self._kdf_m//1024, parallelism=self._kdf_p, hash_len=32, type=argon2.low_level.Type.D)
             T = T.hash(R, salt=self._kdf_s)
